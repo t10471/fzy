@@ -55,7 +55,7 @@ void mat_print(score_t *mat, char name, const char *needle, const char *haystack
 }
 #endif
 
-const score_t bonus_states[][256] = {
+const score_t bonus_states[3][256] = {
 	{ 0 },
 	{
 		['/'] = SCORE_MATCH_SLASH,
@@ -79,6 +79,8 @@ const size_t bonus_index[256] = {
 	['a' ... 'z'] = 1,
 	['0' ... '9'] = 1,
 };
+
+#define COMPUTE_BONUS(last_ch, ch) (bonus_states[bonus_index[(size_t)(ch)]][(size_t)(last_ch)])
 
 static void precompute_bonus(const char *haystack, score_t *match_bonus) {
 	/* Which positions are beginning of words */
@@ -125,20 +127,22 @@ score_t match_positions(const char *needle, const char *haystack, size_t *positi
 	 * D[][] Stores the best score for this position ending with a match.
 	 * M[][] Stores the best possible score at this position.
 	 */
-	precompute_bonus(haystack, match_bonus);
 
 	for (int i = 0; i < n; i++) {
 		score_t prev_score = SCORE_MIN;
 		score_t gap_score = i == n - 1 ? SCORE_GAP_TRAILING : SCORE_GAP_INNER;
 
+		char ch, last_ch = '/';
 		for (int j = 0; j < m; j++) {
+			ch = haystack[j];
 			if (tolower(needle[i]) == tolower(haystack[j])) {
 				score_t score = SCORE_MIN;
+				score_t bonus = COMPUTE_BONUS(last_ch, ch);
 				if (!i) {
-					score = (j * SCORE_GAP_LEADING) + match_bonus[j];
+					score = (j * SCORE_GAP_LEADING) + bonus;
 				} else if (j) { /* i > 0 && j > 0*/
 					score = max(
-					    M[i - 1][j - 1] + match_bonus[j],
+					    M[i - 1][j - 1] + bonus,
 
 					    /* consecutive match, doesn't stack with match_bonus */
 					    D[i - 1][j - 1] + SCORE_MATCH_CONSECUTIVE);
@@ -149,6 +153,7 @@ score_t match_positions(const char *needle, const char *haystack, size_t *positi
 				D[i][j] = SCORE_MIN;
 				M[i][j] = prev_score = prev_score + gap_score;
 			}
+			last_ch = ch;
 		}
 	}
 
